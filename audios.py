@@ -24,7 +24,7 @@ def calculing(archivo):
 def absFft(array):
     return np.abs(array)
 
-def separate(array, num_segments=16):
+def separate(array, num_segments=32):
     arr = []
     segment_len = len(array) // num_segments
     for i in range(num_segments):
@@ -33,7 +33,7 @@ def separate(array, num_segments=16):
     return arr
 
 def prom(array):
-    return [sum(sub[i] for sub in array) / len(array) for i in range(16)]
+    return [sum(sub[i] for sub in array) / len(array) for i in range(32)]
 
 
 if __name__ == '__main__':

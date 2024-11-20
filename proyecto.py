@@ -73,7 +73,7 @@ def absFft(array):
     return np.abs(array)
 
 
-def separate(array, num_blocks=16):
+def separate(array, num_blocks=32):
     """
     Divide una señal en bloques iguales y calcula el promedio de cada bloque.
     """

@@ -23,6 +23,7 @@ def plot_audio_spectrum(file_path, title, ax):
     # Graficar el espectro
     ax.plot(xf, 2.0 / N * np.abs(yf[:N // 2]), label=title)
     ax.axvline(x=700, color='red', linestyle='--', label="700 Hz")
+    ax.axvline(x=1300, color='purple', linestyle='--', label="1300 Hz")
     ax.axvline(x=2000, color='blue', linestyle='--', label="2000 Hz")
     ax.axvline(x=3000, color='green', linestyle='--', label="3000 Hz")
     ax.set_title(title)
