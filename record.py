@@ -14,9 +14,10 @@ archivo = "Left.wav"
 
 def recordchetao():
     a = 1
-    b = a + 40
+    b = a + 20
     for k in range(a, b):
-        archivo = f"./audios/comprimir/Comprimir{k}.wav"
+
+        archivo = f"./audios/Ver nubes/Ver nubes{k}.wav"
         print(k)
         # SE INICIA PYAUDIO
         audio = pyaudio.PyAudio()

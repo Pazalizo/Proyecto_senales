@@ -1,33 +1,34 @@
-import tkinter as tk
-from tkinter import messagebox
+import sys
+import os
 import pyaudio
 import wave
 import numpy as np
 from scipy.io import wavfile as waves
-from scipy.fft import fft  # FFT más eficiente usando SciPy
+from scipy.fft import fft
 import pickle
-import os
-
-from Bordes import bordes
-from Comprimir import Comprimir
-from figuras import figuras
+from scipy.spatial.distance import cosine
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QVBoxLayout, QPushButton, QLabel, QFileDialog, QWidget, QMessageBox
+)
+from PyQt5.QtGui import QPixmap
 
 # Configuración de audio
 formato = pyaudio.paInt16
-canales = 1  # Canal mono
-rate = 44100  # Frecuencia de muestreo
-chunk = 1024  # Tamaño del buffer
-duracion = 2  # Duración de la grabación en segundos
-archivo = "señal.wav"  # Archivo donde se guarda el audio grabado
+canales = 1
+rate = 44100
+chunk = 1024
+duracion = 2
+archivo = "señal.wav"
 
 
 def record():
     audio = pyaudio.PyAudio()
 
-    # Selecciona el dispositivo con índice 1
     try:
-        stream = audio.open(format=formato, channels=canales, rate=rate, 
-                            input=True, input_device_index=1, frames_per_buffer=chunk)
+        stream = audio.open(
+            format=formato, channels=canales, rate=rate, 
+            input=True, input_device_index=1, frames_per_buffer=chunk
+        )
     except Exception as e:
         print(f"Error abriendo el dispositivo de audio: {e}")
         return
@@ -45,7 +46,6 @@ def record():
     stream.close()
     audio.terminate()
 
-    # Guarda el audio grabado en un archivo WAV
     waveFile = wave.open(archivo, 'wb')
     waveFile.setnchannels(canales)
     waveFile.setsampwidth(audio.get_sample_size(formato))
@@ -56,15 +56,10 @@ def record():
 
 def calculing(archivo):
     muestreo, sonido = waves.read(archivo)
-    muestra = len(sonido)
-    
-    # Si el audio es estéreo, usa solo el primer canal
     if len(sonido.shape) > 1:
         xn = sonido[:, 0]
     else:
         xn = sonido
-
-    # Calcula la energía de la señal
     energia = np.sum(np.abs(xn.astype(np.float64)) ** 2)
     return xn, energia
 
@@ -74,127 +69,93 @@ def absFft(array):
 
 
 def separate(array, num_blocks=32):
-    """
-    Divide una señal en bloques iguales y calcula el promedio de cada bloque.
-    """
     segment_len = len(array) // num_blocks
-    return [
-        np.mean(array[i * segment_len:(i + 1) * segment_len]) for i in range(num_blocks)
-    ]
+    return [np.mean(array[i * segment_len:(i + 1) * segment_len]) for i in range(num_blocks)]
 
 
 def cal_energia(array):
-    """
-    Calcula la energía en 4 bandas de la señal.
-    """
     band_size = len(array) // 4
-    return [
-        np.sum(np.abs(array[i * band_size:(i + 1) * band_size]) ** 2)
-        for i in range(4)
-    ]
+    return [np.sum(np.abs(array[i * band_size:(i + 1) * band_size]) ** 2) for i in range(4)]
 
 
-def substract(arr, arr2):
-    """
-    Resta elemento a elemento entre dos arrays.
-    """
-    return np.sum(np.abs(np.array(arr) - np.array(arr2)))
-
-
-def comparing(array):
-    """
-    Encuentra el índice del menor valor en un array.
-    """
-    return np.argmin(array)
-
-
-def prom(array):
-    """
-    Promedia los valores de varias listas para obtener una lista promedio.
-    """
-    return [np.mean([sub[i] for sub in array]) for i in range(len(array[0]))]
-
-
-def start_processing():
-    record()   
+def start_processing(selected_option_label):
+    record()
     xn, energia = calculing(archivo)
-    fft_arr = fft(xn)  # Calcula la FFT usando SciPy
+    xn = xn / max(abs(xn))
+    fft_arr = fft(xn)
     fft_arr = absFft(fft_arr)
     rec = separate(fft_arr)
 
     print(f"Vector procesado: {rec}")
-
     banda_energies = cal_energia(rec)
-    os.system('cls')
-    print(f"Energía total: {energia}")
-    print(f"Energías por banda: {banda_energies}")
 
-    # Carga los datos procesados previamente
     with open('array_data.pkl', 'rb') as f:
         data = pickle.load(f)
     array, energias = data
 
-    # Comparación
-    compare = [substract(a, rec) for a in array]
-    pos = comparing(compare)
+    compare = [cosine(a, rec) for a in array]
+    pos = compare.index(min(compare))
 
-    # Asigna la palabra reconocida
     if pos == 0:
-        palabra = "Bordes"
-    elif pos == 1:
         palabra = "Comprimir"
+    elif pos == 1:
+        palabra = "Segmentar"
     elif pos == 2:
-        palabra = "Figuras"
+        palabra = "Ver nubes"
+    elif pos == 3:
+        palabra = "Volver"
+    elif pos == 4:
+        palabra = "Si"
+    elif pos == 5:
+        palabra = "No"
     else:
         palabra = "Desconocido"
 
-    selected_option.set(f"Elegiste: {palabra}")
+    selected_option_label.setText(f"Elegiste: {palabra}")
+    print(selected_option_label.text())
 
 
-def run_algorithm():
-    palabra = selected_option.get().split(": ")[1]
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Reconocimiento de Voz")
+        self.setGeometry(100, 100, 600, 400)
 
-    if palabra == "Bordes":
-        messagebox.showinfo("Información", "ALGORITMO DETECCION DE BORDES ACTIVADO")
-        bordes(root)
-    elif palabra == "Comprimir":
-        messagebox.showinfo("Información", "ALGORITMO COMPRESION ACTIVADO")
-        Comprimir(root)
-    elif palabra == "Figuras":
-        messagebox.showinfo("Información", "ALGORITMO RECONOCIMIENTO DE FIGURAS ACTIVADO")
-        figuras(root)
-    else:
-        messagebox.showerror("Error", "Selección no válida")
+        self.initUI()
 
+    def initUI(self):
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        layout = QVBoxLayout(self.central_widget)
 
-def main(main):
-    global selected_option
-    global root
+        # Botón para grabar y procesar
+        self.record_button = QPushButton("Grabar y Procesar")
+        self.record_button.clicked.connect(lambda: start_processing(self.selected_option_label))
+        layout.addWidget(self.record_button)
 
-    main.destroy()
+        # Etiqueta para mostrar resultados
+        self.selected_option_label = QLabel("Graba un audio")
+        layout.addWidget(self.selected_option_label)
 
-    root = tk.Tk()
-    root.title("Reconocimiento de Voz")
+        # Botón para cargar imagen
+        self.upload_button = QPushButton("Cargar Imagen")
+        self.upload_button.clicked.connect(self.load_image)
+        layout.addWidget(self.upload_button)
 
-    frame = tk.Frame(root)
-    frame.pack(padx=95, pady=10)
+        # Etiqueta para mostrar imagen
+        self.image_label = QLabel()
+        layout.addWidget(self.image_label)
 
-    record_button = tk.Button(frame, text="Grabar y Procesar", command=start_processing)
-    record_button.pack(pady=5)
-
-    selected_option = tk.StringVar()
-    selected_option.set("Graba un audio")
-
-    result_label = tk.Label(frame, textvariable=selected_option)
-    result_label.pack(pady=5)
-
-    run_button = tk.Button(frame, text="Ejecutar Algoritmo", command=run_algorithm)
-    run_button.pack(pady=5)
-
-    root.mainloop()
+    def load_image(self):
+        image_path, _ = QFileDialog.getOpenFileName(self, "Selecciona una imagen", "", "Images (*.png *.jpg *.jpeg *.bmp)")
+        if image_path:
+            pixmap = QPixmap(image_path)
+            self.image_label.setPixmap(pixmap)
+            self.image_label.setScaledContents(True)  # Escalar la imagen para ajustarse a la etiqueta
 
 
-# Lanza la aplicación principal
 if __name__ == "__main__":
-    root = tk.Tk()
-    main(root)
+    app = QApplication(sys.argv)
+    main_window = MainWindow()
+    main_window.show()
+    sys.exit(app.exec_())

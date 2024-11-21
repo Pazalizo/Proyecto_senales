@@ -40,13 +40,13 @@ if __name__ == '__main__':
     array = []
     energia = []
     
-    categorias = ["bordes", "comprimir", "figuras"]
+    categorias = ["comprimir","segmentar","ver nubes","volver","si", "no"]
     for categoria in categorias:
         aux = []
         energy = []
         print(f"Procesando categoría: {categoria}")
         
-        for i in range(69):  # Ajusta a 69 si tienes esa cantidad de archivos
+        for i in range(20):  # Ajusta a 21 si tienes esa cantidad de archivos
             archivo = f"./audios/{categoria.capitalize()}/{categoria.capitalize()}{i+1}.wav"
             
             if not os.path.exists(archivo):
