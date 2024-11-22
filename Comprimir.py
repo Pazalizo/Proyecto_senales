@@ -93,7 +93,7 @@ def detect_command():
         return "Desconocido"
     pos = compare.index(min(compare))
 
-    commands = ["Comprimir", "Segmentar", "Ver nubes", "Volver", "Si", "No", "Ver Comprimida"]
+    commands = ["comprimir", "segmentar", "ver nubes", "volver", "si", "no", "ver comprimida"]
     return commands[pos] if pos < len(commands) else "Desconocido"
 
 
@@ -272,7 +272,7 @@ class MainWindow(QMainWindow):
                 # Definir porcentajes de compresión predeterminados
                 porcentajes_compresion = [15, 50, 70]
                 
-                # Leer la imagen en color
+                # Leer la imagen en escala de grises
                 image = cv2.imread(self.image_path, cv2.IMREAD_GRAYSCALE)
                 if image is None:
                     raise ValueError("No se pudo leer la imagen.")
@@ -368,11 +368,14 @@ class MainWindow(QMainWindow):
                         self.info_label.setText("Error al segmentar la imagen.")
                 else:
                     self.info_label.setText("Por favor, carga una imagen antes de segmentar.")
-        
+
             elif command.lower() == "comprimir":
                 if self.image_loaded:
                     self.info_label.setText("Procesando compresión...")
-                    self.comprimir_imagen()  # Usar el método de compresión actualizado
+                    self.last_action = "comprimir"
+                    self.state = "waiting_confirmation"
+                    self.info_label.setText("Compresión completada. ¿Deseas ver las imágenes comprimidas? (Si/No)")
+                    # Notificamos al usuario que la compresión ya se realizó y ahora pregunta si desea ver las imágenes
                 else:
                     self.info_label.setText("Por favor, carga una imagen antes de comprimirla.")
 
@@ -383,10 +386,9 @@ class MainWindow(QMainWindow):
                     image_path = self.processed_image_path
                     self.open_secondary_window(image_path, title=title)
                 elif self.last_action == "comprimir":
-                    title = "Imágenes Comprimidas y Descomprimidas"
-                    # Las imágenes comprimidas ya se han mostrado en una ventana auxiliar
-                    QMessageBox.information(self, "Información", "Las imágenes comprimidas ya están abiertas en una ventana auxiliar.")
-                self.state = "waiting_3" if self.last_action == "segmentar" else "main_menu"
+                    # Ejecutar la compresión y mostrar las imágenes comprimidas
+                    self.comprimir_imagen()
+                self.state = "waiting_3"
                 self.info_label.setText("¿Deseas realizar otra acción? (Cualquier comando para volver)")
             elif command.lower() == "no":
                 self.info_label.setText("Acción cancelada. Regresando al menú principal.")
