@@ -47,7 +47,7 @@ if __name__ == '__main__':
         print(f"Procesando categoría: {categoria}")
         
         #Examina el directorio con n muestras de audio en este caso 20 para calcular la energia de sus subbandas
-        for i in range(20):  
+        for i in range(40):  
             archivo = f"./audios/{categoria.capitalize()}/{categoria.capitalize()}{i+1}.wav"
             
             if not os.path.exists(archivo):
