@@ -17,7 +17,7 @@ def recordchetao():
     b = a + 20
     for k in range(a, b):
 
-        archivo = f"./audios/Ver nubes/Ver nubes{k}.wav"
+        archivo = f"./audios/Volver/Volver{k}.wav"
         print(k)
         # SE INICIA PYAUDIO
         audio = pyaudio.PyAudio()
