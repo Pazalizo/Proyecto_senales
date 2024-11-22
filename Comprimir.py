@@ -8,10 +8,11 @@ from scipy.fft import fft
 import pickle
 from scipy.spatial.distance import cosine
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QPushButton, QLabel, QFileDialog, QWidget, QStatusBar, QMessageBox, QLineEdit
+    QApplication, QMainWindow, QVBoxLayout, QPushButton, QLabel, QFileDialog, QWidget,
+    QStatusBar, QMessageBox, QHBoxLayout
 )
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import QTimer, QThread, pyqtSignal
+from PyQt5.QtCore import QTimer, QThread, pyqtSignal, Qt
 import cv2
 from scipy.fftpack import dct, idct
 
@@ -94,6 +95,44 @@ def detect_command():
 
     commands = ["Comprimir", "Segmentar", "Ver nubes", "Volver", "Si", "No", "Ver Comprimida"]
     return commands[pos] if pos < len(commands) else "Desconocido"
+
+
+class MultiImageWindow(QMainWindow):
+    """Ventana secundaria para mostrar múltiples imágenes procesadas."""
+    def __init__(self, images_with_labels, title="Imágenes Comprimidas"):
+        super().__init__()
+        self.setWindowTitle(title)
+        self.setGeometry(200, 200, 900, 500)
+        self.images_with_labels = images_with_labels
+        self.initUI()
+
+    def initUI(self):
+        layout = QHBoxLayout()
+
+        for image_path, label in self.images_with_labels:
+            vbox = QVBoxLayout()
+
+            # Mostrar la imagen
+            if image_path and os.path.exists(image_path):
+                pixmap = QPixmap(image_path)
+                image_label = QLabel()
+                image_label.setPixmap(pixmap)
+                image_label.setScaledContents(True)
+                image_label.setFixedSize(250, 250)  # Ajusta el tamaño según sea necesario
+                vbox.addWidget(image_label)
+            else:
+                vbox.addWidget(QLabel("No se pudo cargar la imagen."))
+
+            # Mostrar la etiqueta de porcentaje
+            label_widget = QLabel(label)
+            label_widget.setAlignment(Qt.AlignCenter)
+            vbox.addWidget(label_widget)
+
+            layout.addLayout(vbox)
+
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
 
 
 class SecondaryWindow(QMainWindow):
@@ -224,7 +263,8 @@ class MainWindow(QMainWindow):
 
     def comprimir_imagen(self):
         """
-        Comprime la imagen cargada con los porcentajes especificados y muestra cada compresión y descompresión.
+        Comprime la imagen cargada con los porcentajes especificados y muestra las imágenes comprimidas
+        en una única ventana auxiliar, una al lado de la otra con el porcentaje de compresión abajo.
         Utiliza porcentajes predeterminados: [15, 50, 70].
         """
         if self.image_path is not None:
@@ -240,9 +280,12 @@ class MainWindow(QMainWindow):
                 # Aplicar la Transformada Discreta del Coseno (DCT) tipo 2
                 dct_tipo2 = dct(dct(image.T, type=2, norm='ortho').T, type=2, norm='ortho')
                 
-                # Lista para almacenar las imágenes comprimidas y descomprimidas
+                # Listas para almacenar las imágenes comprimidas y descomprimidas
                 imagenes_comprimidas = []
                 imagenes_descomprimidas = []
+                
+                # Lista para almacenar las imágenes comprimidas y sus etiquetas
+                images_with_labels = []
                 
                 for porcentaje in porcentajes_compresion:
                     # Calcular la cantidad de coeficientes a conservar
@@ -274,20 +317,18 @@ class MainWindow(QMainWindow):
                     
                     imagenes_comprimidas.append((nombre_comprimida, porcentaje))
                     imagenes_descomprimidas.append((nombre_descomprimida, porcentaje))
-                
-                # Mostrar las imágenes comprimidas y descomprimidas en ventanas secundarias
-                for (nombre_comprimida, porcentaje), (nombre_descomprimida, _) in zip(imagenes_comprimidas, imagenes_descomprimidas):
-                    # Mostrar imagen comprimida
-                    self.open_secondary_window(nombre_comprimida, title=f"Comprimida al {porcentaje}%")
                     
-                    # Mostrar imagen descomprimida
-                    self.open_secondary_window(nombre_descomprimida, title=f"Descomprimida al {porcentaje}%")
+                    # Añadir la imagen comprimida y su etiqueta a la lista
+                    images_with_labels.append((nombre_comprimida, f"{porcentaje}% de Compresión"))
+                
+                # Mostrar las imágenes comprimidas en una única ventana auxiliar
+                self.open_multi_image_window(images_with_labels, title="Imágenes Comprimidas")
                 
                 # Actualizar el estado y la interfaz
                 self.processed_image_path = imagenes_comprimidas[0][0]  # Por ejemplo, la primera imagen comprimida
                 self.last_action = "comprimir"
-                self.state = "waiting_confirmation"
-                self.info_label.setText("Compresión completada. ¿Deseas ver las imágenes comprimidas y descomprimidas? (Si/No)")
+                self.state = "waiting_3"  # Cambiar a 'waiting_3' para esperar cualquier comando como 'volver'
+                self.info_label.setText("Compresión completada. ¿Deseas realizar otra acción? (Cualquier comando para volver)")
             
             except ValueError as ve:
                 QMessageBox.critical(self, "Error", str(ve))
@@ -296,9 +337,22 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.warning(self, "Advertencia", "Por favor, carga una imagen antes de comprimirla.")
 
+    def open_multi_image_window(self, images_with_labels, title="Imágenes Comprimidas"):
+        """Abre una ventana secundaria con múltiples imágenes procesadas."""
+        window = MultiImageWindow(images_with_labels, title)
+        self.secondary_windows.append(window)
+        window.show()
+
     def process_command(self, command):
         """Procesa el comando detectado."""
         self.status_bar.showMessage(f"Comando detectado: {command}")
+
+        if self.state == "waiting_3":
+            # Cualquier comando recibido se trata como 'volver'
+            self.info_label.setText("Cerrando ventanas y regresando al menú principal.")
+            self.close_secondary_windows()
+            self.state = "main_menu"
+            return  # Salir para no procesar otros estados
 
         if self.state == "main_menu":
             if command.lower() == "segmentar":
@@ -314,7 +368,7 @@ class MainWindow(QMainWindow):
                         self.info_label.setText("Error al segmentar la imagen.")
                 else:
                     self.info_label.setText("Por favor, carga una imagen antes de segmentar.")
-            
+        
             elif command.lower() == "comprimir":
                 if self.image_loaded:
                     self.info_label.setText("Procesando compresión...")
@@ -327,27 +381,15 @@ class MainWindow(QMainWindow):
                 if self.last_action == "segmentar":
                     title = "Imagen Segmentada"
                     image_path = self.processed_image_path
+                    self.open_secondary_window(image_path, title=title)
                 elif self.last_action == "comprimir":
                     title = "Imágenes Comprimidas y Descomprimidas"
-                    # Las imágenes ya se han mostrado en ventanas secundarias
-                    QMessageBox.information(self, "Información", "Las imágenes comprimidas y descomprimidas ya están abiertas en ventanas secundarias.")
-                    self.state = "main_menu"
-                    return
-                else:
-                    title = "Imagen Procesada"
-                    image_path = self.processed_image_path
-
-                self.info_label.setText(f"Abriendo ventana de {title}...")
-                self.open_secondary_window(image_path, title=title)
-                self.state = "waiting_3"
+                    # Las imágenes comprimidas ya se han mostrado en una ventana auxiliar
+                    QMessageBox.information(self, "Información", "Las imágenes comprimidas ya están abiertas en una ventana auxiliar.")
+                self.state = "waiting_3" if self.last_action == "segmentar" else "main_menu"
+                self.info_label.setText("¿Deseas realizar otra acción? (Cualquier comando para volver)")
             elif command.lower() == "no":
                 self.info_label.setText("Acción cancelada. Regresando al menú principal.")
-                self.state = "main_menu"
-
-        elif self.state == "waiting_3":
-            if command.lower() == "volver":
-                self.info_label.setText("Cerrando ventanas y regresando al menú principal.")
-                self.close_secondary_windows()
                 self.state = "main_menu"
 
     def open_secondary_window(self, image_path, title="Imagen Procesada"):
@@ -423,6 +465,7 @@ class MainWindow(QMainWindow):
             window = SecondaryWindow(nombre, title=titulo)
             self.secondary_windows.append(window)
             window.show()
+
 
 def calculing(archivo):
     """Calcula la energía de una señal de audio."""
